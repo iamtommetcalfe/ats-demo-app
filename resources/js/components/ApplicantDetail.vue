@@ -68,6 +68,12 @@
                     <td class="py-2 px-3">{{ check.status }}</td>
                     <td class="py-2 px-3">{{ formatDate(check.created_at) }}</td>
                     <td class="py-2 px-3">
+                        <a
+                            :href="`/amiqus/records/${check.id}`"
+                            class="px-2 py-1 text-sm rounded transition flex items-center space-x-1"
+                        >
+                            View Details
+                        </a>
                         <button
                             @click="refreshStatus(check)"
                             :disabled="refreshingCheckId === check.id"

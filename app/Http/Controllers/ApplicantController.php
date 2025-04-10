@@ -18,8 +18,14 @@ class ApplicantController extends Controller
             $query->orderByDesc('created_at');
         }]);
 
+        $breadcrumbs = [
+            ['label' => 'Applicants', 'url' => route('applicants.index')],
+            ['label' => $applicant->first_name . ' ' . $applicant->last_name],
+        ];
+
         return view('applicants.show', [
             'applicant' => $applicant->toArray(),
+            'breadcrumbs' => $breadcrumbs,
         ]);
     }
 

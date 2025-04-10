@@ -16,4 +16,9 @@ class BackgroundCheck extends Model
     {
         return $this->belongsTo(Applicant::class);
     }
+
+    public function steps()
+    {
+        return $this->hasMany(BackgroundCheckStep::class);
+    }
 }

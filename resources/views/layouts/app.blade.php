@@ -20,6 +20,9 @@
             Manage Amiqus Connection
         </a>
     </div>
+    <div class="mb-6 flex justify-between items-start">
+        @include('partials.breadcrumbs')
+    </div>
 
     @yield('content')
 </div>

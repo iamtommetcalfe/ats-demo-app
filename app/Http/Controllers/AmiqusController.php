@@ -151,11 +151,19 @@ class AmiqusController extends Controller
                 ->with('error', 'Failed to create Amiqus record.');
         }
 
-        $applicant->backgroundChecks()->create([
+        $backgroundCheck = $applicant->backgroundChecks()->create([
             'amiqus_record_id' => $recordResponse->json('id'),
             'perform_url' => $recordResponse->json('perform_url'),
             'status' => 'pending',
         ]);
+
+        foreach ($recordData['steps'] ?? [] as $step) {
+            $backgroundCheck->steps()->create([
+                'amiqus_step_id' => $step['id'],
+                'type' => $step['type'],
+                'cost' => $step['cost'] ?? null,
+            ]);
+        }
 
         return redirect()->route('applicants.show', $applicant->id)
             ->with('success', 'Background check initiated.');
@@ -163,7 +171,6 @@ class AmiqusController extends Controller
 
     public function refreshRecord(BackgroundCheck $backgroundCheck)
     {
-        error_log('WORKING');
         $token = OauthToken::getAmiqusToken();
 
         if (!$token || $token->isExpired()) {
@@ -181,8 +188,34 @@ class AmiqusController extends Controller
         $backgroundCheck->status = $recordData['status'] ?? 'unknown';
         $backgroundCheck->save();
 
+        $backgroundCheck->steps()->delete(); // clear old steps
+
+        foreach ($recordData['steps'] ?? [] as $step) {
+            $backgroundCheck->steps()->create([
+                'amiqus_step_id' => $step['id'],
+                'type' => $step['type'],
+                'cost' => $step['cost'] ?? null,
+            ]);
+        }
+
         return response()->json([
             'status' => $backgroundCheck->status,
+        ]);
+    }
+
+    public function showRecord(BackgroundCheck $backgroundCheck)
+    {
+        $backgroundCheck->load('steps', 'applicant');
+
+        $breadcrumbs = [
+            ['label' => 'Applicants', 'url' => route('applicants.index')],
+            ['label' => $backgroundCheck->applicant->first_name . ' ' . $backgroundCheck->applicant->last_name, 'url' => route('applicants.show', $backgroundCheck->applicant->id)],
+            ['label' => 'Background Check Details'],
+        ];
+
+        return view('amiqus.records.show', [
+            'check' => $backgroundCheck->toArray(),
+            'breadcrumbs' => $breadcrumbs,
         ]);
     }
 }
