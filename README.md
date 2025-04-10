@@ -5,12 +5,12 @@ This is a lightweight applicant tracking system built with **Laravel 11**, **Vue
 It allows:
 - Creating applicants and managing their recruitment status.
 - Initiating background checks via Amiqus.
-- Viewing and copying perform URLs to send to the user.
+- Viewing and copying perform URLs for the end users.
 - Refreshing the status of checks via Amiqus API.
 
 ---
 
-## 🚀 Installation
+## 🚀 Docker Installation (Recommended)
 
 ### 1. Clone the repository
 
@@ -19,63 +19,90 @@ git clone https://github.com/iamtommetcalfe/ats-demo-app.git
 cd ats-demo-app
 ```
 
-### 2. Install PHP dependencies
+### 2. Set up environment variables
 
-```bash
-composer install
-```
-
-### 3. Install JavaScript dependencies
-
-```bash
-npm install
-```
-
-### 4. Configure environment variables
-
-Copy `.env.example` to `.env` and set the following keys:
+Copy `.env.example` to `.env` and update the following:
 
 ```env
 APP_URL=http://localhost:8000
+
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=amiqus
+DB_USERNAME=amiqus
+DB_PASSWORD=secret
 
 AMIQUS_CLIENT_ID=your_amiqus_client_id
 AMIQUS_CLIENT_SECRET=your_amiqus_client_secret
 AMIQUS_REDIRECT_URI=http://localhost:8000/amiqus/callback
 ```
 
-If running locally, you can use [ngrok](https://ngrok.com/) or similar to expose `localhost` securely for testing OAuth.
+If running locally, consider using [ngrok](https://ngrok.com/) to expose `localhost` securely for OAuth testing.
 
-### 5. Generate app key
+---
 
-```bash
-php artisan key:generate
-```
+## 📦 Start the Application
 
-### 6. Set up your database
+You can either run everything **manually** or via the provided **Makefile**.
 
-Make sure your DB credentials are configured in `.env`, then run:
+---
 
-```bash
-php artisan migrate --seed
-```
-
-This will create the necessary tables and seed 50 example applicants.
-
-### 7. Compile front-end assets
+### 🔧 Option A: Manual Docker Setup
 
 ```bash
-npm run dev
+# Build and start containers
+docker compose up --build -d
+
+# Install dependencies inside container
+docker compose exec app composer install
+docker compose exec app npm install
+
+# Generate app key
+docker compose exec app php artisan key:generate
+
+# Migrate and seed the database
+docker compose exec app php artisan migrate --seed
+
+# Start Vite dev server (run this in a second terminal)
+docker compose exec app npm run dev
 ```
 
-(Or use `npm run build` for production.)
+---
 
-### 8. Run the application
+### ✅ Option B: Use Makefile
+
+Run everything with a single command:
 
 ```bash
-php artisan serve
+make setup
 ```
 
-Then visit [http://localhost:8000](http://localhost:8000) in your browser.
+Then in a second terminal:
+
+```bash
+make dev
+```
+
+---
+
+### Makefile Commands
+
+```make
+make setup     # Build, up, install deps, migrate, seed
+make dev       # Start the Vite dev server (hot reload)
+make migrate   # Run database migrations
+make seed      # Run DB seeders
+make fresh     # Reset DB and reseed
+```
+
+---
+
+## ✅ Access the App
+
+- Laravel app: [http://localhost:8000](http://localhost:8000)
+- Vite dev server: automatically injected via Blade (hot reload)
+- Amiqus callback URL: [http://localhost:8000/amiqus/callback](http://localhost:8000/amiqus/callback)
 
 ---
 
@@ -83,43 +110,41 @@ Then visit [http://localhost:8000](http://localhost:8000) in your browser.
 
 To connect your Amiqus sandbox account:
 
-1. Visit the **"Manage Amiqus Connection"** link in the top right corner.
-2. Click **"Connect to Amiqus"** to begin the OAuth handshake.
-3. Once authorised, tokens will be stored in the database and reused/auto-refreshed when needed.
-
----
-
-## ✅ Features
-
-- Fully local setup with seeded applicant data
-- OAuth2 token handling with refresh support
-- Status-based applicant workflow
-- Background check triggering
-- Perform URL capture & copy
-- Real-time status refresh from Amiqus
-- Clean and responsive UI with TailwindCSS
+1. Click **"Manage Amiqus Connection"** at the top of the app
+2. Authorise the connection to store your OAuth token
+3. Tokens will be persisted and automatically refreshed when needed
 
 ---
 
 ## 🧪 Testing the Flow
 
-1. Navigate to the homepage
-2. Click on an applicant
-3. Change their status to **"background check"** and confirm
-4. Once redirected and authenticated, the background check will be initiated
-5. Copy the perform URL and simulate sharing it with the applicant
-6. Click "Update" next to a background check to refresh its status from Amiqus
+1. Visit the homepage and view an applicant
+2. Change their status to **"background check"** and confirm
+3. Authorise with Amiqus
+4. A record is created, and the status updates to **"background check in progress"**
+5. Copy or send the perform URL to a test email
+6. Use the **"Update"** button to check status from Amiqus live
 
 ---
 
-## 🧹 Useful Commands
+## 🧹 Useful Extras
 
 - Reset database:  
   ```bash
-  php artisan migrate:fresh --seed
+  docker compose exec app php artisan migrate:fresh --seed
   ```
 
-- Clear config cache:  
+- Clear cache:  
   ```bash
-  php artisan config:clear
+  docker compose exec app php artisan config:clear
   ```
+
+---
+
+## 🧑‍💻 Tech Stack
+
+- Laravel 11
+- Vue 3 + Vite + TailwindCSS
+- MySQL 8 (Docker)
+- OAuth2 (Amiqus)
+- Custom Docker Compose setup
