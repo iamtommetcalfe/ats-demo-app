@@ -21,8 +21,10 @@
             </span>
                 </td>
                 <td class="py-3 px-4 text-center">
-                    <a :href="`/applicants/${applicant.id}`"
-                       class="text-blue-600 hover:text-blue-800 font-semibold">
+                    <a
+                        :href="`/applicants/${applicant.id}`"
+                        class="bg-blue-500 text-white hover:bg-blue-600 transition px-3 py-1 rounded"
+                    >
                         View Details
                     </a>
                 </td>

@@ -71,14 +71,14 @@
                         <div class="flex items-center gap-2">
                             <a
                                 :href="`/amiqus/records/${check.id}`"
-                                class="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 transition"
+                                class="bg-blue-500 text-white hover:bg-blue-600 transition px-3 py-1 rounded"
                             >
                                 View Details
                             </a>
                             <button
                                 @click="refreshStatus(check)"
                                 :disabled="refreshingCheckId === check.id"
-                                class="px-3 py-1 text-sm rounded text-white transition flex items-center"
+                                class="bg-blue-500 text-white hover:bg-blue-600 transition px-3 py-1 rounded"
                                 :class="refreshingCheckId === check.id
         ? 'bg-gray-400 cursor-wait'
         : 'bg-blue-600 hover:bg-blue-700'"
