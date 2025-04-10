@@ -68,38 +68,32 @@
                     <td class="py-2 px-3">{{ check.status }}</td>
                     <td class="py-2 px-3">{{ formatDate(check.created_at) }}</td>
                     <td class="py-2 px-3">
-                        <a
-                            :href="`/amiqus/records/${check.id}`"
-                            class="px-2 py-1 text-sm rounded transition flex items-center space-x-1"
-                        >
-                            View Details
-                        </a>
-                        <button
-                            @click="refreshStatus(check)"
-                            :disabled="refreshingCheckId === check.id"
-                            class="px-2 py-1 text-sm rounded transition flex items-center space-x-1"
-                            :class="refreshingCheckId === check.id
-      ? 'bg-gray-400 text-white cursor-wait'
-      : 'bg-gray-200 hover:bg-gray-300 text-gray-800'"
-                        >
-    <span v-if="refreshingCheckId === check.id">
-      <svg class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-        <circle
-            class="opacity-25"
-            cx="12" cy="12" r="10"
-            stroke="currentColor" stroke-width="4"
-        ></circle>
-        <path
-            class="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 11-8 8z"
-        ></path>
-      </svg>
-    </span>
-                            <span>
-      {{ refreshingCheckId === check.id ? 'Updating…' : 'Update' }}
-    </span>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <a
+                                :href="`/amiqus/records/${check.id}`"
+                                class="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 transition"
+                            >
+                                View Details
+                            </a>
+                            <button
+                                @click="refreshStatus(check)"
+                                :disabled="refreshingCheckId === check.id"
+                                class="px-3 py-1 text-sm rounded text-white transition flex items-center"
+                                :class="refreshingCheckId === check.id
+        ? 'bg-gray-400 cursor-wait'
+        : 'bg-blue-600 hover:bg-blue-700'"
+                            >
+                                <svg v-if="refreshingCheckId === check.id"
+                                     class="animate-spin h-4 w-4 mr-2 text-white"
+                                     viewBox="0 0 24 24" fill="none">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10"
+                                            stroke="currentColor" stroke-width="4" />
+                                    <path class="opacity-75" fill="currentColor"
+                                          d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 11-8 8z" />
+                                </svg>
+                                {{ refreshingCheckId === check.id ? 'Updating…' : 'Update' }}
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 <tr v-if="applicant.background_checks.length === 0">
