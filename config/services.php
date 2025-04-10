@@ -34,5 +34,9 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
+    'amiqus' => [
+        'client_id' => env('AMIQUS_CLIENT_ID'),
+        'client_secret' => env('AMIQUS_CLIENT_SECRET'),
+        'redirect_uri' => env('AMIQUS_REDIRECT_URI'),
+    ],
 ];

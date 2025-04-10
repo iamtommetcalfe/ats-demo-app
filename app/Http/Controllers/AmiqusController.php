@@ -5,10 +5,12 @@ use App\Models\Applicant;
 use App\Models\BackgroundCheck;
 use App\Models\OauthToken;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use App\Services\Amiqus\AmiqusService;
 
 class AmiqusController extends Controller
 {
+    public function __construct(protected AmiqusService $amiqusService) {}
+
     public function connectPage()
     {
         $token = OauthToken::getAmiqusToken();
@@ -25,11 +27,11 @@ class AmiqusController extends Controller
         ]);
     }
 
-    public function redirectToAmiqus(Request $request)
+    public function redirectToAmiqus()
     {
         $query = http_build_query([
-            'client_id'     => env('AMIQUS_CLIENT_ID'),
-            'redirect_uri'  => env('AMIQUS_REDIRECT_URI'),
+            'client_id'     => config('services.amiqus.client_id'),
+            'redirect_uri'  => config('services.amiqus.redirect_uri'),
             'response_type' => 'code',
             'state'         => csrf_token(),
         ]);
@@ -39,177 +41,37 @@ class AmiqusController extends Controller
 
     public function handleCallback(Request $request)
     {
-        $code = $request->query('code');
-        if (!$code) return redirect()->route('amiqus.connect')->with('error', 'Authorization failed.');
-
-        $response = Http::asForm()->post('https://id.amiqus.co/oauth/token', [
-            'grant_type'    => 'authorization_code',
-            'client_id'     => env('AMIQUS_CLIENT_ID'),
-            'client_secret' => env('AMIQUS_CLIENT_SECRET'),
-            'redirect_uri'  => env('AMIQUS_REDIRECT_URI'),
-            'code'          => $code,
-        ]);
-
-        if ($response->failed()) {
-            return redirect()->route('amiqus.connect')->with('error', 'Token exchange failed.');
+        if (!$code = $request->query('code')) {
+            return redirect()->route('amiqus.connect')->with('error', 'Authorization failed.');
         }
 
-        $data = $response->json();
+        $success = $this->amiqusService->exchangeAuthCodeForToken($code);
 
-        OauthToken::updateOrCreate(
-            ['provider' => 'amiqus'],
-            [
-                'access_token'  => $data['access_token'],
-                'refresh_token' => $data['refresh_token'] ?? null,
-                'expires_at'    => now()->addSeconds($data['expires_in']),
-            ]
+        return redirect()->route('amiqus.connect')->with(
+            $success ? 'success' : 'error',
+            $success ? 'Amiqus connection established.' : 'Token exchange failed.'
         );
-
-        return redirect()->route('amiqus.connect')->with('success', 'Amiqus connection established.');
-    }
-
-    private function getValidAccessToken(): ?string
-    {
-        $token = OauthToken::getAmiqusToken();
-
-        if (!$token) return null;
-
-        if (!$token->isExpired()) return $token->access_token;
-
-        // Attempt refresh
-        $response = Http::asForm()->post('https://id.amiqus.co/oauth/token', [
-            'grant_type'    => 'refresh_token',
-            'client_id'     => env('AMIQUS_CLIENT_ID'),
-            'client_secret' => env('AMIQUS_CLIENT_SECRET'),
-            'refresh_token' => $token->refresh_token,
-        ]);
-
-        if ($response->failed()) return null;
-
-        $data = $response->json();
-
-        $token->update([
-            'access_token' => $data['access_token'],
-            'refresh_token' => $data['refresh_token'] ?? $token->refresh_token,
-            'expires_at' => now()->addSeconds($data['expires_in']),
-        ]);
-
-        return $token->access_token;
     }
 
     public function startCheck(Applicant $applicant)
     {
-        $accessToken = $this->getValidAccessToken();
+        $success = $this->amiqusService->initiateBackgroundCheck($applicant);
 
-        if (!$accessToken) {
-            return redirect()->route('amiqus.connect')->with('error', 'No valid Amiqus token. Please connect first.');
-        }
-
-        return $this->createAmiqusRecords($applicant, $accessToken);
-    }
-
-    protected function createAmiqusRecords(Applicant $applicant, string $accessToken)
-    {
-        // ✅ Only create a new client if one doesn't exist
-        if (!$applicant->amiqus_client_id) {
-            $clientResponse = Http::withToken($accessToken)->post('https://id.amiqus.co/api/v2/clients', [
-                'name' => [
-                    'title' => 'mr',
-                    'first_name' => $applicant->first_name,
-                    'middle_name' => null,
-                    'last_name' => $applicant->last_name,
-                ],
-                'email' => $applicant->email,
-            ]);
-
-            if ($clientResponse->failed()) {
-                return redirect()->route('applicants.show', $applicant->id)
-                    ->with('error', 'Failed to create Amiqus client.');
-            }
-
-            $applicant->update([
-                'amiqus_client_id' => $clientResponse->json('id'),
-                'status' => 'background check in progress',
-            ]);
-        } else {
-            $applicant->update([
-                'status' => 'background check in progress',
-            ]);
-        }
-
-        // ✅ Use existing or just-created client ID
-        $clientId = $applicant->amiqus_client_id;
-
-        $recordResponse = Http::withToken($accessToken)->post('https://id.amiqus.co/api/v2/records', [
-            'client' => $clientId,
-            'steps' => [
-                [
-                    'type' => 'check.dummy',
-                    'preferences' => [
-                        'state' => 'pending',
-                    ],
-                ],
-            ],
-            'notification' => false,
-        ]);
-
-        if ($recordResponse->failed()) {
-            return redirect()->route('applicants.show', $applicant->id)
-                ->with('error', 'Failed to create Amiqus record.');
-        }
-
-        $recordData = $recordResponse->json();
-
-        $backgroundCheck = $applicant->backgroundChecks()->create([
-            'amiqus_record_id' => $recordData['id'],
-            'perform_url' => $recordData['perform_url'],
-            'status' => 'pending',
-        ]);
-
-        foreach ($recordData['steps'] ?? [] as $step) {
-            $backgroundCheck->steps()->create([
-                'amiqus_step_id' => $step['id'],
-                'type' => $step['type'],
-                'cost' => $step['cost'] ?? null,
-            ]);
-        }
-
-        return redirect()->route('applicants.show', $applicant->id)
-            ->with('success', 'Background check initiated.');
+        return redirect()->route('applicants.show', $applicant->id)->with(
+            $success ? 'success' : 'error',
+            $success ? 'Background check initiated.' : 'Failed to initiate background check.'
+        );
     }
 
     public function refreshRecord(BackgroundCheck $backgroundCheck)
     {
-        $token = OauthToken::getAmiqusToken();
+        $status = $this->amiqusService->refreshRecordStatus($backgroundCheck);
 
-        if (!$token || $token->isExpired()) {
-            return response()->json(['message' => 'No valid Amiqus token'], 401);
+        if (!$status) {
+            return response()->json(['message' => 'Failed to refresh record.'], 500);
         }
 
-        $response = Http::withToken($token->access_token)
-            ->get("https://id.amiqus.co/api/v2/records/{$backgroundCheck->amiqus_record_id}");
-
-        if ($response->failed()) {
-            return response()->json(['message' => 'Failed to fetch record'], 500);
-        }
-
-        $recordData = $response->json();
-        $backgroundCheck->status = $recordData['status'] ?? 'unknown';
-        $backgroundCheck->save();
-
-        $backgroundCheck->steps()->delete(); // clear old steps
-
-        foreach ($recordData['steps'] ?? [] as $step) {
-            $backgroundCheck->steps()->create([
-                'amiqus_step_id' => $step['id'],
-                'type' => $step['type'],
-                'cost' => $step['cost'] ?? null,
-            ]);
-        }
-
-        return response()->json([
-            'status' => $backgroundCheck->status,
-        ]);
+        return response()->json(['status' => $status]);
     }
 
     public function showRecord(BackgroundCheck $backgroundCheck)
@@ -218,7 +80,7 @@ class AmiqusController extends Controller
 
         $breadcrumbs = [
             ['label' => 'Applicants', 'url' => route('applicants.index')],
-            ['label' => $backgroundCheck->applicant->first_name . ' ' . $backgroundCheck->applicant->last_name, 'url' => route('applicants.show', $backgroundCheck->applicant->id)],
+            ['label' => $backgroundCheck->applicant->full_name, 'url' => route('applicants.show', $backgroundCheck->applicant->id)],
             ['label' => 'Background Check Details'],
         ];
 
