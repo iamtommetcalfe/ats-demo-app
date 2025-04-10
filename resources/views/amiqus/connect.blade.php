@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <h1 class="text-2xl font-bold mb-4">Amiqus Integration</h1>
+    <h1 class="text-2xl font-bold mb-4">Manage Authentication</h1>
 
     @if(session('success'))
         <div class="p-4 mb-4 bg-green-100 text-green-700 rounded">{{ session('success') }}</div>

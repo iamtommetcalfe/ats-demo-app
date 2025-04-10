@@ -12,9 +12,16 @@ class AmiqusController extends Controller
     public function connectPage()
     {
         $token = OauthToken::getAmiqusToken();
+
+        $breadcrumbs = [
+            ['label' => 'Applicants', 'url' => route('applicants.index')],
+            ['label' => 'Manage Authentication'],
+        ];
+
         return view('amiqus.connect', [
             'token' => $token,
             'valid' => $token && !$token->isExpired(),
+            'breadcrumbs' => $breadcrumbs,
         ]);
     }
 
@@ -151,9 +158,11 @@ class AmiqusController extends Controller
                 ->with('error', 'Failed to create Amiqus record.');
         }
 
+        $recordData = $recordResponse->json();
+
         $backgroundCheck = $applicant->backgroundChecks()->create([
-            'amiqus_record_id' => $recordResponse->json('id'),
-            'perform_url' => $recordResponse->json('perform_url'),
+            'amiqus_record_id' => $recordData['id'],
+            'perform_url' => $recordData['perform_url'],
             'status' => 'pending',
         ]);
 
